@@ -1,0 +1,98 @@
+schema: '2.0'
+stages:
+  prepare:
+    cmd: python prepare_data.py
+    deps:
+    - path: data/raw/POS_CASH_balance.csv
+      hash: md5
+      md5: cb8e5cc3885d1e53753955ffde317b44
+      size: 392703158
+    - path: data/raw/application_test.csv
+      hash: md5
+      md5: 42c2c6b7683003bae1b99c469f79497f
+      size: 26567651
+    - path: data/raw/application_train.csv
+      hash: md5
+      md5: 793a017f41fbac1dc28176b26dbab30e
+      size: 166133370
+    - path: data/raw/bureau.csv
+      hash: md5
+      md5: ec0f59a16e7071de66b83217b23bb390
+      size: 170016717
+    - path: data/raw/bureau_balance.csv
+      hash: md5
+      md5: 5e815ea6eb338752724bcf46da13c602
+      size: 375592889
+    - path: data/raw/credit_card_balance.csv
+      hash: md5
+      md5: ff83bfc2285d218802c6dff749bc5efc
+      size: 424582605
+    - path: data/raw/installments_payments.csv
+      hash: md5
+      md5: 4e9751972d02c376f0e75edbf6c9d07d
+      size: 723118349
+    - path: data/raw/previous_application.csv
+      hash: md5
+      md5: bd1eb5f08a4700414db1742e5cc0f9fa
+      size: 404973293
+    - path: data_loader.py
+      hash: md5
+      md5: 2733cb620b48519360e5efb71892b5ac
+      size: 3352
+    - path: features.py
+      hash: md5
+      md5: 9d2b1dfe7818b42ce190b966e568d676
+      size: 13873
+    - path: prepare_data.py
+      hash: md5
+      md5: af52bfb7167dea6fd591a84192921dc5
+      size: 600
+    - path: preprocessing.py
+      hash: md5
+      md5: 148b5641deacb3ebbf9d5f83f573deaf
+      size: 9467
+    outs:
+    - path: data/processed/test_processed.csv
+      hash: md5
+      md5: 982911858e220f723b26e3e61401962e
+      size: 76099886
+    - path: data/processed/train_processed.csv
+      hash: md5
+      md5: 0e44d70aee7b4a9d0431278916edc199
+      size: 470904375
+  train:
+    cmd: python train_model.py
+    deps:
+    - path: data/processed/test_processed.csv
+      hash: md5
+      md5: 982911858e220f723b26e3e61401962e
+      size: 76099886
+    - path: data/processed/train_processed.csv
+      hash: md5
+      md5: 0e44d70aee7b4a9d0431278916edc199
+      size: 470904375
+    - path: modeling.py
+      hash: md5
+      md5: 833d75d8b6785eed2a5c293f7bb58b9e
+      size: 2752
+    - path: prepare_data.py
+      hash: md5
+      md5: af52bfb7167dea6fd591a84192921dc5
+      size: 600
+    - path: preprocessing.py
+      hash: md5
+      md5: 148b5641deacb3ebbf9d5f83f573deaf
+      size: 9467
+    - path: train_model.py
+      hash: md5
+      md5: ab9e1d94105ae449d3b7cc5852e23daf
+      size: 9890
+    outs:
+    - path: models/lightgbm_model.pkl
+      hash: md5
+      md5: e9998a74e0b9cc3c842ea1cfca36e9d4
+      size: 12241122
+    - path: submission.csv
+      hash: md5
+      md5: 43c9200538738664f62bf3e4281cd1db
+      size: 1380211

@@ -1,0 +1,31 @@
+stages:
+  prepare:
+    cmd: python prepare_data.py
+    deps:
+      - prepare_data.py
+      - data_loader.py
+      - features.py
+      - preprocessing.py
+      - data/raw/application_train.csv
+      - data/raw/application_test.csv
+      - data/raw/bureau.csv
+      - data/raw/bureau_balance.csv
+      - data/raw/credit_card_balance.csv
+      - data/raw/installments_payments.csv
+      - data/raw/POS_CASH_balance.csv
+      - data/raw/previous_application.csv
+    outs:
+      - data/processed/train_processed.csv
+      - data/processed/test_processed.csv
+  train:
+    cmd: python train_model.py
+    deps:
+      - train_model.py
+      - modeling.py
+      - preprocessing.py
+      - prepare_data.py
+      - data/processed/train_processed.csv
+      - data/processed/test_processed.csv
+    outs:
+        - submission.csv
+        - models/lightgbm_model.pkl
