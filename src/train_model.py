@@ -26,12 +26,14 @@ from src.preprocessing import (
     get_train_test_data,
     prepare_full_train_test_for_submission,
 )
+import dagshub
 import logging
 
 logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
 
 def train_model():
+    dagshub.init(repo_owner='Mu2Ka', repo_name='Credit-Default-Risk-mu2ka', mlflow=True)
     try:
         train = pd.read_csv("data/processed/train_processed.csv")
         test = pd.read_csv("data/processed/test_processed.csv")
