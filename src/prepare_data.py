@@ -1,11 +1,10 @@
-from .data_loader import *
-from .features import *
-from .preprocessing import *
 from pathlib import Path
+from data_loader import build_modeling_tables
+from preprocessing import FEATURE_ENGINEERING
 ## data_loader  - получили test,train агрегированный по id
 ##features - агрегировали
 ## preprocessing onehot и тд
-
+print('старт модуля prepare_Data')
 def prepare_data(data_dir: str = "data/raw"):
     train, test = build_modeling_tables(data_dir)
     train = FEATURE_ENGINEERING(train)

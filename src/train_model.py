@@ -4,7 +4,6 @@ import re
 import time
 import mlflow
 import warnings
-from .prepare_data import *
 import pandas as pd
 from lightgbm import LGBMClassifier
 import mlflow.sklearn
@@ -19,19 +18,15 @@ from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-from src.data_loader import build_modeling_tables
-from src.modeling import get_models, optimize_LightGBM_with_optuna
-from src.preprocessing import (
-    FEATURE_ENGINEERING,
-    get_train_test_data,
-    prepare_full_train_test_for_submission,
-)
+from prepare_data import prepare_data
+from modeling import get_models
+from preprocessing import get_train_test_data
 import dagshub
 import logging
 
 logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
-
+print('Старт модуля train_model')
 def train_model():
     dagshub.init(repo_owner='Mu2Ka', repo_name='Credit-Default-Risk-mu2ka', mlflow=True)
     try:
@@ -54,14 +49,17 @@ def train_model():
         y_train_for_catboost,
         y_test_for_catboost,
     ) = get_train_test_data(train)
+    print('Получили датасеты')
     x_train_copy = x_train.copy()
     results_baseline = {}
     cat_cols = train.drop(columns=["TARGET"]).select_dtypes(include=["object"]).columns
     models = get_models()
+    print('Начинаем обучение моделей')
     for name, info in models.items():
         print(f"Now we start training {name}")
         with mlflow.start_run(run_name=f'baseline_{name}'):
             model = info["model"]
+
             mlflow.set_tag("model_name",name)
             mlflow.set_tag("stage","baseline")
             if name == "CatBoost":
@@ -110,6 +108,7 @@ def train_model():
                 model,
                 name=f"{name.lower().replace(' ', '_')}_baseline_model",
                 registered_model_name="credit_default_risk_baseline_model",
+                serialization_format="cloudpickle",
             )
 
 

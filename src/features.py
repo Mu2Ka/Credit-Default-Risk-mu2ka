@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-
+print('старт модуля features')
 def build_bureau_features(bureau: pd.DataFrame) -> pd.DataFrame:
     bureau = bureau.copy()
 

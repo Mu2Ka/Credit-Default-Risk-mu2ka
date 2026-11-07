@@ -5,7 +5,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 
-
+print('старт модуля preprocessing')
 def FEATURE_ENGINEERING(dataset: pd.DataFrame) -> pd.DataFrame:
     train = dataset.copy()
     social_columns = [
