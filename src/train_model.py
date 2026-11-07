@@ -1,14 +1,13 @@
 import pickle
+from pathlib import Path
 import re
 import time
 import mlflow
 import warnings
 from .prepare_data import *
-import optuna
 import pandas as pd
 from lightgbm import LGBMClassifier
 import mlflow.sklearn
-from optuna.samplers import TPESampler
 from sklearn.metrics import (
     accuracy_score,
     average_precision_score,
@@ -17,6 +16,7 @@ from sklearn.metrics import (
     roc_curve,
 )
 from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
 from src.data_loader import build_modeling_tables
@@ -62,7 +62,7 @@ def train_model():
             model = info["model"]
             mlflow.set_tag("model_name",name)
             mlflow.set_tag("stage","baseline")
-            if name == "Cat Boost":
+            if name == "CatBoost":
                 model.fit(
                     x_train_for_catboost,
                     y_train_for_catboost,
@@ -70,14 +70,9 @@ def train_model():
                 )
                 y_proba = model.predict_proba(x_test_for_catboost)[:, 1]
                 y_pred = model.predict(x_test_for_catboost)
-                x_train_for_catboost = x_train
             else:
                 if info["scaled"]:
-                    scaler = StandardScaler()
-                    x_train = scaler.fit_transform(x_train)
-                    x_test = scaler.transform(x_test)
-                    x_train_for_not_catboost = x_train
-                    x_test_for_not_catboost = x_test
+                    model = make_pipeline(StandardScaler(), model)
 
                 model.fit(x_train, y_train)
                 y_pred = model.predict(x_test)
@@ -109,7 +104,12 @@ def train_model():
             path.parent.mkdir(parents=True, exist_ok=True)
             with open(path,'wb') as f:
                 pickle.dump(model,f)
-            # for remote (dagshub)
-            remote_server_url = "https://dagshub.com/Mu2Ka/Credit-Default-Risk-mu2ka.mlflow"
-            mlflow.set_tracking_uri(remote_server_url)
-    
+            mlflow.sklearn.log_model(
+                model,
+                name=f"{name.lower().replace(' ', '_')}_baseline_model",
+                registered_model_name="credit_default_risk_baseline_model",
+            )
+
+
+if __name__ == "__main__":
+    train_model()
