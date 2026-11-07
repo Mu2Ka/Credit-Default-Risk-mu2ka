@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from features import (
+from .features import (
     merge_POS_CASH_BALANCE_features,
     merge_bureau_balance_features,
     merge_bureau_features,

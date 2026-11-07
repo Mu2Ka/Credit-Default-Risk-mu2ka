@@ -3,7 +3,7 @@ import re
 import time
 import mlflow
 import warnings
-from src.prepare_data import *
+from .prepare_data import *
 import optuna
 import pandas as pd
 from lightgbm import LGBMClassifier
@@ -28,14 +28,16 @@ from src.preprocessing import (
 )
 
 warnings.filterwarnings("ignore")
-def run_training_pipeline(
-    final_feature_count: int = 150,
-    n_trials: int = 1,
-    timeout: int = 4000,
-    submission_path: str = "submission.csv",
+def train_model(
+    # final_feature_count: int = 200,
+    # n_trials: int = 1,
+    # timeout: int = 4000,
+    # submission_path: str = "submission.csv",
 ):
+    
     train = pd.read_csv("data/processed/train_processed.csv")
     test = pd.read_csv("data/processed/test_processed.csv")
+    
     train_for_learning_before_test = train.copy()
     (
         x_train,
@@ -48,7 +50,6 @@ def run_training_pipeline(
         y_test_for_catboost,
     ) = get_train_test_data(train)
     x_train_copy = x_train.copy()
-
     results_baseline = {}
     cat_cols = train.drop(columns=["TARGET"]).select_dtypes(include=["object"]).columns
     models = get_models()
@@ -99,7 +100,9 @@ def run_training_pipeline(
                 "threshold_roc": threshold_roc,
                 "thresholds_pr": thresholds_pr,
             }
-            with open(f"models/baseline/{name}.pkl", "wb") as f:
+            path = Path(f"models/baseline/{name}.pkl")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with open(path, "wb") as f:
                 pickle.dump(model, f)
 
     feature_importance = pd.DataFrame(
