@@ -26,18 +26,21 @@ from src.preprocessing import (
     get_train_test_data,
     prepare_full_train_test_for_submission,
 )
+import logging
 
-warnings.filterwarnings("ignore")
-def train_model(
-    # final_feature_count: int = 200,
-    # n_trials: int = 1,
-    # timeout: int = 4000,
-    # submission_path: str = "submission.csv",
-):
-    
-    train = pd.read_csv("data/processed/train_processed.csv")
-    test = pd.read_csv("data/processed/test_processed.csv")
-    
+logging.basicConfig(level=logging.WARN)
+logger = logging.getLogger(__name__)
+
+def train_model():
+    try:
+        train = pd.read_csv("data/processed/train_processed.csv")
+        test = pd.read_csv("data/processed/test_processed.csv")
+    except Exception as e:
+        logger.warning(f"Processed data not found. Preparing data: {e}")
+        logger.info("Preparing data...")
+        prepare_data()
+        train = pd.read_csv("data/processed/train_processed.csv")
+        test = pd.read_csv("data/processed/test_processed.csv")
     train_for_learning_before_test = train.copy()
     (
         x_train,
@@ -54,11 +57,12 @@ def train_model(
     cat_cols = train.drop(columns=["TARGET"]).select_dtypes(include=["object"]).columns
     models = get_models()
     for name, info in models.items():
-        print(f"Сейчас обучаем {name}")
-        with mlflow.start_run(run_name=name):
+        print(f"Now we start training {name}")
+        with mlflow.start_run(run_name=f'baseline_{name}'):
             model = info["model"]
-            mlflow.log_param("model_name",name)
-            if name == "CatBoost":
+            mlflow.set_tag("model_name",name)
+            mlflow.set_tag("stage","baseline")
+            if name == "Cat Boost":
                 model.fit(
                     x_train_for_catboost,
                     y_train_for_catboost,
@@ -84,10 +88,11 @@ def train_model(
             precisions, recalls, thresholds_pr = precision_recall_curve(y_test, y_proba)
             fpr, tpr, threshold_roc = roc_curve(y_test, y_proba)
             accuracy = accuracy_score(y_test, y_pred)
+            print(f"Model: {name}, Accuracy: {accuracy}, ROC AUC: {roc_auc}, PR AUC: {pr_auc}")
+            
             mlflow.log_metric('roc_auc', roc_auc)
             mlflow.log_metric('accuracy', accuracy)
             mlflow.log_metric('pr_auc', pr_auc)
-            mlflow.sklearn.log_model(model, "model")
             results_baseline[name] = {
                 "model": model,
                 "accuracy": accuracy,
@@ -100,10 +105,11 @@ def train_model(
                 "threshold_roc": threshold_roc,
                 "thresholds_pr": thresholds_pr,
             }
-            path = Path(f"models/baseline/{name}.pkl")
+            path = Path(f'models/baseline/{name.lower().replace(" ", "_")}_baseline_model.pkl')
             path.parent.mkdir(parents=True, exist_ok=True)
-            with open(path, "wb") as f:
-                pickle.dump(model, f)
+            with open(path,'wb') as f:
+                pickle.dump(model,f)
+                
 
     feature_importance = pd.DataFrame(
         {
