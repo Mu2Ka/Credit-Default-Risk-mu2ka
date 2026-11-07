@@ -1,6 +1,6 @@
-from data_loader import *
-from features import *
-from preprocessing import *
+from src.data_loader import *
+from src.features import *
+from src.preprocessing import *
 ## data_loader  - получили test,train агрегированный по id
 ##features - агрегировали
 ## preprocessing onehot и тд

@@ -3,7 +3,7 @@ import re
 import time
 import mlflow
 import warnings
-from prepare_data import *
+from src.prepare_data import *
 import optuna
 import pandas as pd
 from lightgbm import LGBMClassifier
@@ -19,9 +19,9 @@ from sklearn.metrics import (
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.preprocessing import StandardScaler
 
-from data_loader import build_modeling_tables
-from modeling import get_models, optimize_LightGBM_with_optuna
-from preprocessing import (
+from src.data_loader import build_modeling_tables
+from src.modeling import get_models, optimize_LightGBM_with_optuna
+from src.preprocessing import (
     FEATURE_ENGINEERING,
     get_train_test_data,
     prepare_full_train_test_for_submission,
