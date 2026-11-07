@@ -248,6 +248,9 @@ def get_train_test_data(train: pd.DataFrame):
 
     x_train = pd.concat([x_train, x_train_ohe_df], axis=1)
     x_test = pd.concat([x_test, x_test_ohe_df], axis=1)
+    clean_columns = [re.sub(r"[^A-Za-z0-9_]+", "_", col) for col in x_train.columns]
+    x_train.columns = clean_columns
+    x_test.columns = clean_columns
     print(x_train.shape, x_test.shape)
 
     return (
