@@ -66,7 +66,7 @@ def train_model(name = None,name_experiment = "baseline"):
     print('Начинаем обучение моделей')
     for name, info in models.items():
         print(f"Now we start training {name}")
-        with mlflow.start_run(run_name=f'baseline_{name}'):
+        with mlflow.start_run(run_name=f'{name_experiment}_{name}'):
             model = info["model"]
 
             mlflow.set_tag("model_name",name)
