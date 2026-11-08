@@ -1,5 +1,7 @@
 import json
+import hashlib
 import pickle
+import subprocess
 from pathlib import Path
 import re
 import time
@@ -34,7 +36,41 @@ logger = logging.getLogger(__name__)
 print('Старт модуля train_model')
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-def train_model(name = None,name_experiment = "baseline"):
+
+def data_version():
+    file_path = PROJECT_ROOT / "data/processed/train_processed.csv"
+    digest = hashlib.sha256()
+    with open(file_path, "rb") as file:
+        for chunk in iter(lambda: file.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def log_run_info(model_name, feature_set, evaluation, columns, model_params, version):
+    mlflow.set_tags({
+        "model_name": model_name,
+        "feature_set": feature_set,
+        "evaluation": evaluation,
+        "stage": "baseline" if feature_set == "baseline" else "experiment",
+        "data_version": version,
+    })
+    commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=PROJECT_ROOT,
+        capture_output=True, text=True, check=False,
+    ).stdout.strip()
+    if commit:
+        mlflow.set_tag("git_commit", commit)
+    dirty = subprocess.run(
+        ["git", "status", "--porcelain"], cwd=PROJECT_ROOT,
+        capture_output=True, text=True, check=False,
+    ).stdout
+    mlflow.set_tag("code_dirty", str(bool(dirty)).lower())
+    mlflow.log_dict({"columns": list(columns)}, "features.json")
+    mlflow.log_dict(model_params, "model_params.json")
+    for name in ("train_model.py", "preprocessing.py", "features.py", "modeling.py", "prepare_data.py"):
+        mlflow.log_artifact(str(PROJECT_ROOT / "src" / name), artifact_path="source")
+
+def train_model(name = None,name_experiment = "current"):
     dagshub.init(repo_owner='Mu2Ka', repo_name='Credit-Default-Risk-mu2ka', mlflow=True)
     try:
         train = pd.read_csv(PROJECT_ROOT / "data/processed/train_processed.csv")
@@ -62,15 +98,16 @@ def train_model(name = None,name_experiment = "baseline"):
     cat_cols = train.drop(columns=["TARGET"]).select_dtypes(include=["object"]).columns
     models = get_models()
     if name is not None:
-        models = {name: get_models()[name]}
+        models = {name: models[name]}
+    version = data_version()
     print('Начинаем обучение моделей')
     for name, info in models.items():
         print(f"Now we start training {name}")
-        with mlflow.start_run(run_name=f'{name_experiment}_{name}'):
+        with mlflow.start_run(run_name=f'{name}__{name_experiment}__holdout'):
             model = info["model"]
-
-            mlflow.set_tag("model_name",name)
-            mlflow.set_tag("stage","baseline")
+            columns = x_train_for_catboost.columns if name == "CatBoost" else x_train.columns
+            log_run_info(name, name_experiment, "holdout", columns, model.get_params(), version)
+            mlflow.log_params({"split_seed": 42, "test_size": 0.2, "train_rows": len(y_train), "valid_rows": len(y_test)})
             if name == "CatBoost":
                 model.fit(
                     x_train_for_catboost,
@@ -116,14 +153,13 @@ def train_model(name = None,name_experiment = "baseline"):
             mlflow.sklearn.log_model(
                 model,
                 name=f"{name.lower().replace(' ', '_')}_{name_experiment}_model",
-                registered_model_name=f"credit_default_risk_{name_experiment}_model",
                 serialization_format="cloudpickle",
             )
     if name is not None:
         return y_pred, y_proba, results_baseline, x_train, x_test, y_train, y_test
 
 
-def compare_models(results_baseline, x_train, y_train, path="cv_results.json", cv=5):
+def compare_models(results_baseline, x_train, y_train, path=PROJECT_ROOT / "cv_results.json", cv=5, feature_set="current", log_to_mlflow=True):
     skf = StratifiedKFold(n_splits=cv, shuffle=True, random_state=42)
     mean_cols = [
         "DAYS_LAST_PHONE_CHANGE", "CNT_FAM_MEMBERS", "AMT_ANNUITY",
@@ -176,6 +212,20 @@ def compare_models(results_baseline, x_train, y_train, path="cv_results.json", c
         print(f"Model: {name}, Cross-validated ROC AUC: {mean_score:.4f} ± {std_score:.4f}")
     with open(path, "w", encoding="utf-8") as file:
         json.dump(results, file, ensure_ascii=False, indent=2)
+    if log_to_mlflow:
+        dagshub.init(repo_owner='Mu2Ka', repo_name='Credit-Default-Risk-mu2ka', mlflow=True)
+        version = data_version()
+        for name, info in results_baseline.items():
+            with mlflow.start_run(run_name=f"{name}__{feature_set}__cv{cv}"):
+                log_run_info(name, feature_set, f"cv{cv}", x_train.columns, info["model"].get_params(), version)
+                mlflow.log_params({"cv_folds": cv, "split_seed": 42, "train_rows": len(y_train)})
+                mlflow.log_metrics({
+                    "cv_roc_auc_mean": results[name]["roc_auc_mean"],
+                    "cv_roc_auc_std": results[name]["roc_auc_std"],
+                })
+                for fold, score in enumerate(results[name]["fold_scores"], start=1):
+                    mlflow.log_metric(f"cv_fold_{fold}_roc_auc", score)
+                mlflow.log_dict(results[name], "cv_results.json")
     return results
 
 
@@ -186,4 +236,4 @@ if __name__ == "__main__":
     x_train, _, y_train, _ = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
-    compare_models(get_models(), x_train, y_train)
+    compare_models(get_models(), x_train, y_train, feature_set="annuity_debt_app_3")
