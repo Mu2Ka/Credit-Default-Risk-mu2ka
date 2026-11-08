@@ -211,23 +211,11 @@ def fill_missing(train: pd.DataFrame, test: pd.DataFrame) -> tuple[pd.DataFrame,
     return train, test
 
 
-def get_train_test_data(train: pd.DataFrame):
-    Y = train["TARGET"]
-    X = train.drop("TARGET", axis=1)
-    cat_cols = X.select_dtypes(include=["object"]).columns
-
-    x_train, x_test, y_train, y_test = train_test_split(
-        X,
-        Y,
-        test_size=0.2,
-        random_state=42,
-        stratify=Y,
-    )
+def prepare_features(x_train: pd.DataFrame, x_test: pd.DataFrame):
     x_train, x_test = fill_missing(x_train, x_test)
     x_train_for_catboost = x_train
     x_test_for_catboost = x_test
-    y_train_for_catboost = y_train
-    y_test_for_catboost = y_test
+    cat_cols = x_train.select_dtypes(include=["object"]).columns
 
     ohe = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
     x_train_ohe = ohe.fit_transform(x_train[cat_cols])
@@ -251,6 +239,22 @@ def get_train_test_data(train: pd.DataFrame):
     clean_columns = [re.sub(r"[^A-Za-z0-9_]+", "_", col) for col in x_train.columns]
     x_train.columns = clean_columns
     x_test.columns = clean_columns
+
+    return x_train, x_test, x_train_for_catboost, x_test_for_catboost
+
+
+def get_train_test_data(train: pd.DataFrame):
+    Y = train["TARGET"]
+    X = train.drop("TARGET", axis=1)
+
+    x_train, x_test, y_train, y_test = train_test_split(
+        X,
+        Y,
+        test_size=0.2,
+        random_state=42,
+        stratify=Y,
+    )
+    x_train, x_test, x_train_for_catboost, x_test_for_catboost = prepare_features(x_train, x_test)
     print(x_train.shape, x_test.shape)
 
     return (
@@ -260,8 +264,8 @@ def get_train_test_data(train: pd.DataFrame):
         y_test,
         x_train_for_catboost,
         x_test_for_catboost,
-        y_train_for_catboost,
-        y_test_for_catboost,
+        y_train,
+        y_test,
     )
 
 

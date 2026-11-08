@@ -2,7 +2,7 @@ pandas
 numpy
 matplotlib
 seaborn
-scikit-learn>=1.2
+scikit-learn>=1.4
 lightgbm
 catboost
 optuna

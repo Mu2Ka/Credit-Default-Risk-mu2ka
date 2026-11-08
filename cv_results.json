@@ -1,0 +1,18 @@
+{
+  "LogisticRegression": {
+    "roc_auc_mean": 0.7679789402145702,
+    "roc_auc_std": 0.0028322306795486576
+  },
+  "RandomForest": {
+    "roc_auc_mean": 0.7552204255818596,
+    "roc_auc_std": 0.003116272817273931
+  },
+  "LightGBM": {
+    "roc_auc_mean": 0.7793392749147424,
+    "roc_auc_std": 0.0024072596195182866
+  },
+  "CatBoost": {
+    "roc_auc_mean": 0.775985577302046,
+    "roc_auc_std": 0.002288084580131931
+  }
+}
