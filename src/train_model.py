@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from lightgbm import LGBMClassifier
 import mlflow.sklearn
+from sklearn.compose import ColumnTransformer, make_column_selector
 from sklearn.metrics import (
     accuracy_score,
     average_precision_score,
@@ -16,14 +17,15 @@ from sklearn.metrics import (
     roc_auc_score,
     roc_curve,
 )
-from sklearn.model_selection import StratifiedKFold, train_test_split
+from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
 from sklearn.base import clone
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline, make_pipeline
+from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardScaler
 
 from prepare_data import prepare_data
 from modeling import get_models
-from preprocessing import get_train_test_data, prepare_features
+from preprocessing import finish_features, get_train_test_data
 import dagshub
 import logging
 
@@ -116,40 +118,54 @@ def train_model():
 
 
 def compare_models(results_baseline, x_train, y_train, path="cv_results.json", cv=5):
-    scores = {name: [] for name in results_baseline}
     skf = StratifiedKFold(n_splits=cv, shuffle=True, random_state=42)
-
-    for fold, (train_idx, valid_idx) in enumerate(skf.split(x_train, y_train), start=1):
-        x_fold_train, x_fold_valid, x_cat_train, x_cat_valid = prepare_features(
-            x_train.iloc[train_idx], x_train.iloc[valid_idx]
-        )
-        y_fold_train = y_train.iloc[train_idx]
-        y_fold_valid = y_train.iloc[valid_idx]
-        cat_cols = x_cat_train.select_dtypes(include=["object"]).columns.tolist()
-
-        for name, info in results_baseline.items():
-            model = clone(info["model"])
-            if name == "CatBoost":
-                model.fit(x_cat_train, y_fold_train, cat_features=cat_cols)
-                probabilities = model.predict_proba(x_cat_valid)[:, 1]
-            else:
-                if info.get("scaled"):
-                    model = make_pipeline(StandardScaler(), model)
-                model.fit(x_fold_train, y_fold_train)
-                probabilities = model.predict_proba(x_fold_valid)[:, 1]
-
-            score = roc_auc_score(y_fold_valid, probabilities)
-            scores[name].append(float(score))
-            print(f"Fold {fold}, {name}: ROC AUC = {score:.4f}")
+    mean_cols = [
+        "DAYS_LAST_PHONE_CHANGE", "CNT_FAM_MEMBERS", "AMT_ANNUITY",
+        "AMT_GOODS_PRICE", "EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3",
+    ]
+    other_num = [
+        col for col in x_train.select_dtypes(include=[np.number]).columns
+        if col not in mean_cols + ["DAYS_EMPLOYED"]
+    ]
+    cat_cols = x_train.select_dtypes(include=["object"]).columns.tolist()
+    imputer = ColumnTransformer([
+        ("mean", SimpleImputer(strategy="mean", keep_empty_features=True), mean_cols),
+        ("median", SimpleImputer(strategy="median", keep_empty_features=True), ["DAYS_EMPLOYED"]),
+        ("other", SimpleImputer(strategy="constant", fill_value=0), other_num),
+        ("categorical", SimpleImputer(strategy="constant", fill_value="Unknown"), cat_cols),
+    ], verbose_feature_names_out=False).set_output(transform="pandas")
 
     results = {}
-    for name, fold_scores in scores.items():
+    for name, info in results_baseline.items():
+        model = clone(info["model"])
+        steps = [
+            ("impute", imputer),
+            ("features", FunctionTransformer(finish_features)),
+        ]
+        if name == "CatBoost":
+            fit_params = {"model__cat_features": cat_cols}
+        else:
+            encoder = ColumnTransformer([
+                ("numeric", "passthrough", make_column_selector(dtype_include=np.number)),
+                ("categorical", OneHotEncoder(handle_unknown="ignore", sparse_output=False),
+                 make_column_selector(dtype_include=object)),
+            ])
+            steps.append(("encode", encoder))
+            if info.get("scaled"):
+                steps.append(("scale", StandardScaler()))
+            fit_params = None
+        steps.append(("model", model))
+        pipeline = Pipeline(steps)
+
+        fold_scores = cross_val_score(
+            pipeline, x_train, y_train, cv=skf, scoring="roc_auc", params=fit_params
+        )
         mean_score = np.mean(fold_scores)
         std_score = np.std(fold_scores)
         results[name] = {
             "roc_auc_mean": float(mean_score),
             "roc_auc_std": float(std_score),
-            "fold_scores": fold_scores,
+            "fold_scores": fold_scores.tolist(),
         }
         print(f"Model: {name}, Cross-validated ROC AUC: {mean_score:.4f} ± {std_score:.4f}")
     with open(path, "w", encoding="utf-8") as file:

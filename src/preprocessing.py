@@ -173,6 +173,23 @@ def FEATURE_ENGINEERING(dataset: pd.DataFrame) -> pd.DataFrame:
     return train
 
 
+def finish_features(data: pd.DataFrame) -> pd.DataFrame:
+    data = data.copy()
+    data["credit_income_credit"] = data["AMT_CREDIT"] / data["AMT_INCOME_TOTAL"]
+    data["annuity_to_income"] = data["AMT_ANNUITY"] / data["AMT_INCOME_TOTAL"]
+    data["income_for_person"] = data["AMT_INCOME_TOTAL"] / data["CNT_FAM_MEMBERS"]
+    data["EXT_SOURCE_MEAN"] = data[["EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3"]].mean(axis=1)
+    data["EXT_SOURCE_MAX"] = data[["EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3"]].max(axis=1)
+    data["EXT_SOURCE_MIN"] = data[["EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3"]].min(axis=1)
+    data["EXT_SOURCE_STD"] = data[["EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3"]].std(axis=1)
+    data.replace([np.inf, -np.inf], np.nan, inplace=True)
+    numeric = data.select_dtypes(include=[np.number]).columns
+    categorical = data.select_dtypes(include=["object"]).columns
+    data[numeric] = data[numeric].fillna(0)
+    data[categorical] = data[categorical].fillna("Unknown")
+    return data
+
+
 def fill_missing(train: pd.DataFrame, test: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     train = train.copy()
     test = test.copy()
@@ -194,21 +211,7 @@ def fill_missing(train: pd.DataFrame, test: pd.DataFrame) -> tuple[pd.DataFrame,
     train["DAYS_EMPLOYED"] = train["DAYS_EMPLOYED"].fillna(median)
     test["DAYS_EMPLOYED"] = test["DAYS_EMPLOYED"].fillna(median)
 
-    for data in (train, test):
-        data["credit_income_credit"] = data["AMT_CREDIT"] / data["AMT_INCOME_TOTAL"]
-        data["annuity_to_income"] = data["AMT_ANNUITY"] / data["AMT_INCOME_TOTAL"]
-        data["income_for_person"] = data["AMT_INCOME_TOTAL"] / data["CNT_FAM_MEMBERS"]
-        data["EXT_SOURCE_MEAN"] = data[["EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3"]].mean(axis=1)
-        data["EXT_SOURCE_MAX"] = data[["EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3"]].max(axis=1)
-        data["EXT_SOURCE_MIN"] = data[["EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3"]].min(axis=1)
-        data["EXT_SOURCE_STD"] = data[["EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3"]].std(axis=1)
-        data.replace([np.inf, -np.inf], np.nan, inplace=True)
-        numeric = data.select_dtypes(include=[np.number]).columns
-        categorical = data.select_dtypes(include=["object"]).columns
-        data[numeric] = data[numeric].fillna(0)
-        data[categorical] = data[categorical].fillna("Unknown")
-
-    return train, test
+    return finish_features(train), finish_features(test)
 
 
 def prepare_features(x_train: pd.DataFrame, x_test: pd.DataFrame):
