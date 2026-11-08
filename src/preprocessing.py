@@ -5,17 +5,9 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 
-
+print('старт модуля preprocessing')
 def FEATURE_ENGINEERING(dataset: pd.DataFrame) -> pd.DataFrame:
     train = dataset.copy()
-    few_passes = [
-        "DAYS_LAST_PHONE_CHANGE",
-        "CNT_FAM_MEMBERS",
-        "AMT_ANNUITY",
-        "AMT_GOODS_PRICE",
-    ]
-    train[few_passes] = train[few_passes].fillna(train[few_passes].mean())
-
     social_columns = [
         "OBS_30_CNT_SOCIAL_CIRCLE",
         "OBS_60_CNT_SOCIAL_CIRCLE",
@@ -28,10 +20,6 @@ def FEATURE_ENGINEERING(dataset: pd.DataFrame) -> pd.DataFrame:
     for i in range(len(amt_req)):
         train[f"have_checked_req_credit_{i}"] = (train[amt_req[i]] > 0).astype(int)
     train[amt_req] = train[amt_req].fillna(0)
-
-    ext_sour = [col for col in train.columns if col.startswith("EXT_SOURCE_")]
-    for ext in ext_sour:
-        train[ext] = train[ext].fillna(train[ext].mean())
 
     past_end = [col for col in train.columns if col.startswith("PAST_END")]
     early_close = [col for col in train.columns if col.startswith("EARLY_CLOSE")]
@@ -173,9 +161,7 @@ def FEATURE_ENGINEERING(dataset: pd.DataFrame) -> pd.DataFrame:
         "drawings_to_limit_max",
     ]
     train[credit_card_cols] = train[credit_card_cols].fillna(0)
-    train["DAYS_EMPLOYED"] = train["DAYS_EMPLOYED"].fillna(train["DAYS_EMPLOYED"].median())
 
-    train = train.copy()
     train["credit_income_credit"] = train["AMT_CREDIT"] / train["AMT_INCOME_TOTAL"]
     train["annuity_to_income"] = train["AMT_ANNUITY"] / train["AMT_INCOME_TOTAL"]
     train["income_for_person"] = train["AMT_INCOME_TOTAL"] / train["CNT_FAM_MEMBERS"]
@@ -183,27 +169,56 @@ def FEATURE_ENGINEERING(dataset: pd.DataFrame) -> pd.DataFrame:
     train["EXT_SOURCE_MAX"] = train[["EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3"]].max(axis=1)
     train["EXT_SOURCE_MIN"] = train[["EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3"]].min(axis=1)
     train["EXT_SOURCE_STD"] = train[["EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3"]].std(axis=1)
-    train.isnull().sum().sort_values(ascending=False).head(30)
-    train = train.replace([np.inf, -np.inf], np.nan).fillna(0)
+    train = train.replace([np.inf, -np.inf], np.nan)
     return train
 
 
-def get_train_test_data(train: pd.DataFrame):
-    Y = train["TARGET"]
-    X = train.drop("TARGET", axis=1)
-    cat_cols = X.select_dtypes(include=["object"]).columns
+def finish_features(data: pd.DataFrame) -> pd.DataFrame:
+    data = data.copy()
+    data["credit_income_credit"] = data["AMT_CREDIT"] / data["AMT_INCOME_TOTAL"]
+    data["annuity_to_income"] = data["AMT_ANNUITY"] / data["AMT_INCOME_TOTAL"]
+    data["income_for_person"] = data["AMT_INCOME_TOTAL"] / data["CNT_FAM_MEMBERS"]
+    data["EXT_SOURCE_MEAN"] = data[["EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3"]].mean(axis=1)
+    data["EXT_SOURCE_MAX"] = data[["EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3"]].max(axis=1)
+    data["EXT_SOURCE_MIN"] = data[["EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3"]].min(axis=1)
+    data["EXT_SOURCE_STD"] = data[["EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3"]].std(axis=1)
+    data.replace([np.inf, -np.inf], np.nan, inplace=True)
+    numeric = data.select_dtypes(include=[np.number]).columns
+    categorical = data.select_dtypes(include=["object"]).columns
+    data[numeric] = data[numeric].fillna(0)
+    data[categorical] = data[categorical].fillna("Unknown")
+    return data
 
-    x_train, x_test, y_train, y_test = train_test_split(
-        X,
-        Y,
-        test_size=0.2,
-        random_state=42,
-        stratify=Y,
-    )
+
+def fill_missing(train: pd.DataFrame, test: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    train = train.copy()
+    test = test.copy()
+    mean_columns = [
+        "DAYS_LAST_PHONE_CHANGE",
+        "CNT_FAM_MEMBERS",
+        "AMT_ANNUITY",
+        "AMT_GOODS_PRICE",
+        "EXT_SOURCE_1",
+        "EXT_SOURCE_2",
+        "EXT_SOURCE_3",
+    ]
+    for column in mean_columns:
+        mean = train[column].mean()
+        train[column] = train[column].fillna(mean)
+        test[column] = test[column].fillna(mean)
+
+    median = train["DAYS_EMPLOYED"].median()
+    train["DAYS_EMPLOYED"] = train["DAYS_EMPLOYED"].fillna(median)
+    test["DAYS_EMPLOYED"] = test["DAYS_EMPLOYED"].fillna(median)
+
+    return finish_features(train), finish_features(test)
+
+
+def prepare_features(x_train: pd.DataFrame, x_test: pd.DataFrame):
+    x_train, x_test = fill_missing(x_train, x_test)
     x_train_for_catboost = x_train
     x_test_for_catboost = x_test
-    y_train_for_catboost = y_train
-    y_test_for_catboost = y_test
+    cat_cols = x_train.select_dtypes(include=["object"]).columns
 
     ohe = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
     x_train_ohe = ohe.fit_transform(x_train[cat_cols])
@@ -224,6 +239,25 @@ def get_train_test_data(train: pd.DataFrame):
 
     x_train = pd.concat([x_train, x_train_ohe_df], axis=1)
     x_test = pd.concat([x_test, x_test_ohe_df], axis=1)
+    clean_columns = [re.sub(r"[^A-Za-z0-9_]+", "_", col) for col in x_train.columns]
+    x_train.columns = clean_columns
+    x_test.columns = clean_columns
+
+    return x_train, x_test, x_train_for_catboost, x_test_for_catboost
+
+
+def get_train_test_data(train: pd.DataFrame):
+    Y = train["TARGET"]
+    X = train.drop("TARGET", axis=1)
+
+    x_train, x_test, y_train, y_test = train_test_split(
+        X,
+        Y,
+        test_size=0.2,
+        random_state=42,
+        stratify=Y,
+    )
+    x_train, x_test, x_train_for_catboost, x_test_for_catboost = prepare_features(x_train, x_test)
     print(x_train.shape, x_test.shape)
 
     return (
@@ -233,8 +267,8 @@ def get_train_test_data(train: pd.DataFrame):
         y_test,
         x_train_for_catboost,
         x_test_for_catboost,
-        y_train_for_catboost,
-        y_test_for_catboost,
+        y_train,
+        y_test,
     )
 
 
@@ -245,6 +279,7 @@ def prepare_full_train_test_for_submission(
     target = train_df["TARGET"].copy()
     train_features = train_df.drop("TARGET", axis=1).copy()
     test_features = test_df.copy()
+    train_features, test_features = fill_missing(train_features, test_features)
 
     cat_cols = train_features.select_dtypes(include=["object"]).columns
     ohe = OneHotEncoder(handle_unknown="ignore", sparse_output=False)

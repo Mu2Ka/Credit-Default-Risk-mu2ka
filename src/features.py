@@ -1,14 +1,14 @@
 import numpy as np
 import pandas as pd
 
-
+print('старт модуля features')
 def build_bureau_features(bureau: pd.DataFrame) -> pd.DataFrame:
     bureau = bureau.copy()
 
     bureau["ACTIVE_CREDIT"] = (bureau["DAYS_CREDIT_ENDDATE"] > 0).astype(int)
     bureau["PAST_ENDDATE"] = (bureau["DAYS_CREDIT_ENDDATE"] < 0).astype(int)
     bureau["EARLY_CLOSE"] = (
-            bureau["DAYS_ENDDATE_FACT"] > bureau["DAYS_CREDIT_ENDDATE"]
+            bureau["DAYS_ENDDATE_FACT"] < bureau["DAYS_CREDIT_ENDDATE"]
     ).astype(int)
 
     bureau_agg = bureau.groupby("SK_ID_CURR").agg(

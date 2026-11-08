@@ -1,43 +1,39 @@
-.idea/
-.ipynb_checkpoints/
+# Python
 __pycache__/
-**/__pycache__/
 *.py[cod]
-*.pyo
-*.pyd
 .Python
 .venv/
+.uv-cache/
 venv/
 env/
 ENV/
-
-# Jupyter
+.pytest_cache/
+.ipynb_checkpoints/
 *.nbconvert.ipynb
+.idea/
 
-# Local Kaggle data and generated files
-application_train.csv
-application_test.csv
-bureau.csv
-bureau_balance.csv
-data/raw/credit_card_balance.csv
-data/raw/installments_payments.csv
-POS_CASH_balance.csv
-data/raw/previous_application.csv
-HomeCredit_columns_description.csv
-data/raw/sample_submission.csv
+# Local data and training results
+data/raw/
+data/processed/
+models/
 submission.csv
 *.zip
-
-# Training logs and model artifacts
-catboost_info/
 *.pkl
 *.pickle
 *.joblib
 *.model
 *.cbm
-mlflow.db
+catboost_info/
+
+# MLflow
 mlruns/
+mlflow.db*
+
+# Local configuration
+.env
+.env.*
+!.env.example
 
 # OS files
-Thumbs.db
 .DS_Store
+Thumbs.db

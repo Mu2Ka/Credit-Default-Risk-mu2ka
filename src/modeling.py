@@ -6,7 +6,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 
-
+print('Cтарт модуля modeling')
 def get_models() -> dict[str, dict[str, Any]]:
     return {
         "LogisticRegression": {
