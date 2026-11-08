@@ -179,8 +179,13 @@ def finish_features(data: pd.DataFrame) -> pd.DataFrame:
     data["annuity_to_income"] = data["AMT_ANNUITY"] / data["AMT_INCOME_TOTAL"]
     data["income_for_person"] = data["AMT_INCOME_TOTAL"] / data["CNT_FAM_MEMBERS"]
     data["credit_to_annuity"] = (
-    data["AMT_CREDIT"] / data["AMT_ANNUITY"].replace(0, np.nan)
+        data["AMT_CREDIT"] / data["AMT_ANNUITY"].replace(0, np.nan)
     )
+    data["credit_goods_price_ratio"] = (
+        data["AMT_CREDIT"] / data["AMT_GOODS_PRICE"].replace(0, np.nan)
+    )
+    data["credit_downpayment"] = data["AMT_GOODS_PRICE"] - data["AMT_CREDIT"]
+    data["AGE_INT"] = (-data["DAYS_BIRTH"] / 365).astype(int)
     data["EXT_SOURCE_MEAN"] = data[["EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3"]].mean(axis=1)
     data["EXT_SOURCE_MAX"] = data[["EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3"]].max(axis=1)
     data["EXT_SOURCE_MIN"] = data[["EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3"]].min(axis=1)
