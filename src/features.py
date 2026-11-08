@@ -12,6 +12,7 @@ def build_bureau_features(bureau: pd.DataFrame) -> pd.DataFrame:
     ).astype(int)
 
     bureau_agg = bureau.groupby("SK_ID_CURR").agg(
+        AMT_CREDIT_SUM_DEBT=("AMT_CREDIT_SUM_DEBT", "sum"),
         CREDIT_SUM=("AMT_CREDIT_SUM", "sum"),
         CREDIT_COUNT=("SK_ID_BUREAU", "count"),
         CREDIT_MEAN=("AMT_CREDIT_SUM", "mean"),
@@ -35,7 +36,7 @@ def build_bureau_features(bureau: pd.DataFrame) -> pd.DataFrame:
         EARLY_CLOSE_SUM=("EARLY_CLOSE", "sum"),
         EARLY_CLOSE_MEAN=("EARLY_CLOSE", "mean"),
     ).reset_index()
-
+    bureau_agg['CREDIT_DEBT_RATIO'] = bureau_agg['AMT_CREDIT_SUM_DEBT'] / bureau_agg['CREDIT_SUM'].replace(0, np.nan)
     type_credit = (
         bureau.groupby(["SK_ID_CURR", "CREDIT_TYPE"])
         .size()
