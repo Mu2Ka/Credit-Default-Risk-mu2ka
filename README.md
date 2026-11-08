@@ -39,3 +39,5 @@ python src/run_experiment.py
 ```powershell
 dvc repro
 ```
+
+Результаты экспериментов: [MLflow на DagsHub](https://dagshub.com/Mu2Ka/Credit-Default-Risk-mu2ka.mlflow/#/experiments/0). Краткая таблица — в [EXPERIMENTS.md](EXPERIMENTS.md).
