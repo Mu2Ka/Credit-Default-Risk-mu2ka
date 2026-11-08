@@ -32,17 +32,19 @@ import logging
 logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
 print('Старт модуля train_model')
-def train_model():
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+def train_model(name = None,name_experiment = "baseline"):
     dagshub.init(repo_owner='Mu2Ka', repo_name='Credit-Default-Risk-mu2ka', mlflow=True)
     try:
-        train = pd.read_csv("data/processed/train_processed.csv")
-        test = pd.read_csv("data/processed/test_processed.csv")
+        train = pd.read_csv(PROJECT_ROOT / "data/processed/train_processed.csv")
+        test = pd.read_csv(PROJECT_ROOT / "data/processed/test_processed.csv")
     except Exception as e:
         logger.warning(f"Processed data not found. Preparing data: {e}")
         logger.info("Preparing data...")
         prepare_data()
-        train = pd.read_csv("data/processed/train_processed.csv")
-        test = pd.read_csv("data/processed/test_processed.csv")
+        train = pd.read_csv(PROJECT_ROOT / "data/processed/train_processed.csv")
+        test = pd.read_csv(PROJECT_ROOT / "data/processed/test_processed.csv")
     train_for_learning_before_test = train.copy()
     (
         x_train,
@@ -59,10 +61,12 @@ def train_model():
     results_baseline = {}
     cat_cols = train.drop(columns=["TARGET"]).select_dtypes(include=["object"]).columns
     models = get_models()
+    if name is not None:
+        models = {name: get_models()[name]}
     print('Начинаем обучение моделей')
     for name, info in models.items():
         print(f"Now we start training {name}")
-        with mlflow.start_run(run_name=f'baseline_{name}'):
+        with mlflow.start_run(run_name=f'{name_experiment}_{name}'):
             model = info["model"]
 
             mlflow.set_tag("model_name",name)
@@ -105,16 +109,18 @@ def train_model():
                 "threshold_roc": threshold_roc,
                 "thresholds_pr": thresholds_pr,
             }
-            path = Path(f'models/baseline/{name.lower().replace(" ", "_")}_baseline_model.pkl')
+            path = PROJECT_ROOT / f'models/{name_experiment}/{name.lower().replace(" ", "_")}_{name_experiment}_model.pkl'
             path.parent.mkdir(parents=True, exist_ok=True)
             with open(path,'wb') as f:
                 pickle.dump(model,f)
             mlflow.sklearn.log_model(
                 model,
-                name=f"{name.lower().replace(' ', '_')}_baseline_model",
-                registered_model_name="credit_default_risk_baseline_model",
+                name=f"{name.lower().replace(' ', '_')}_{name_experiment}_model",
+                registered_model_name=f"credit_default_risk_{name_experiment}_model",
                 serialization_format="cloudpickle",
             )
+    if name is not None:
+        return y_pred, y_proba, results_baseline, x_train, x_test, y_train, y_test
 
 
 def compare_models(results_baseline, x_train, y_train, path="cv_results.json", cv=5):
@@ -174,7 +180,7 @@ def compare_models(results_baseline, x_train, y_train, path="cv_results.json", c
 
 
 if __name__ == "__main__":
-    train = pd.read_csv("data/processed/train_processed.csv")
+    train = pd.read_csv(PROJECT_ROOT / "data/processed/train_processed.csv")
     X = train.drop(columns=["TARGET"])
     y = train["TARGET"]
     x_train, _, y_train, _ = train_test_split(
