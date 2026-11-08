@@ -1,0 +1,44 @@
+stages:
+  prepare_data:
+    cmd: python src/prepare_data.py
+    deps:
+      - data/raw/application_train.csv
+      - data/raw/application_test.csv
+      - data/raw/bureau.csv
+      - data/raw/bureau_balance.csv
+      - data/raw/credit_card_balance.csv
+      - data/raw/installments_payments.csv
+      - data/raw/POS_CASH_balance.csv
+      - data/raw/previous_application.csv
+      - src/prepare_data.py
+      - src/data_loader.py
+      - src/features.py
+      - src/preprocessing.py
+    outs:
+      - data/processed/train_processed.csv
+      - data/processed/test_processed.csv
+
+  cross_validation:
+    cmd: python src/train_model.py
+    deps:
+      - data/processed/train_processed.csv
+      - src/train_model.py
+      - src/modeling.py
+      - src/preprocessing.py
+      - requirements.txt
+    metrics:
+      - cv_results.json:
+          cache: false
+
+  train_lightgbm:
+    cmd: python src/train_lightgbm.py
+    deps:
+      - data/processed/train_processed.csv
+      - data/processed/test_processed.csv
+      - src/train_lightgbm.py
+      - src/train_model.py
+      - src/modeling.py
+      - src/preprocessing.py
+      - requirements.txt
+    outs:
+      - models/annuity_debt_app_3/lightgbm_annuity_debt_app_3_model.pkl
