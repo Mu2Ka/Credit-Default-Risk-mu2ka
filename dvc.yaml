@@ -1,0 +1,29 @@
+stages:
+  prepare:
+    cmd: python src/prepare_data.py
+    deps:
+      - data/raw
+      - src/prepare_data.py
+      - src/data_loader.py
+      - src/features.py
+      - src/preprocessing.py
+      - src/config.py
+      - configs/params.yaml
+    outs:
+      - data/processed/train_processed.csv
+      - data/processed/test_processed.csv
+
+  train:
+    cmd: python src/run_experiment.py
+    deps:
+      - data/processed/train_processed.csv
+      - data/processed/test_processed.csv
+      - src/run_experiment.py
+      - src/train_model.py
+      - src/modeling.py
+      - src/preprocessing.py
+      - src/config.py
+      - configs/params.yaml
+    outs:
+      - models/dvc/lightgbm_dvc_model.pkl
+и

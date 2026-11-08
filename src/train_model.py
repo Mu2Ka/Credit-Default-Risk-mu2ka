@@ -28,6 +28,7 @@ from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardSc
 from prepare_data import prepare_data
 from modeling import get_models
 from preprocessing import finish_features, get_train_test_data
+from config import PARAMS
 import dagshub
 import logging
 
@@ -107,7 +108,7 @@ def train_model(name = None,name_experiment = "current"):
             model = info["model"]
             columns = x_train_for_catboost.columns if name == "CatBoost" else x_train.columns
             log_run_info(name, name_experiment, "holdout", columns, model.get_params(), version)
-            mlflow.log_params({"split_seed": 42, "test_size": 0.2, "train_rows": len(y_train), "valid_rows": len(y_test)})
+            mlflow.log_params({"split_seed": PARAMS["seed"], "test_size": PARAMS["test_size"], "train_rows": len(y_train), "valid_rows": len(y_test)})
             if name == "CatBoost":
                 model.fit(
                     x_train_for_catboost,
@@ -159,8 +160,10 @@ def train_model(name = None,name_experiment = "current"):
         return y_pred, y_proba, results_baseline, x_train, x_test, y_train, y_test
 
 
-def compare_models(results_baseline, x_train, y_train, path=PROJECT_ROOT / "cv_results.json", cv=5, feature_set="current", log_to_mlflow=True):
-    skf = StratifiedKFold(n_splits=cv, shuffle=True, random_state=42)
+def compare_models(results_baseline, x_train, y_train, path=PROJECT_ROOT / "cv_results.json", cv=None, feature_set="current", log_to_mlflow=True):
+    if cv is None:
+        cv = PARAMS["cv_folds"]
+    skf = StratifiedKFold(n_splits=cv, shuffle=True, random_state=PARAMS["seed"])
     mean_cols = [
         "DAYS_LAST_PHONE_CHANGE", "CNT_FAM_MEMBERS", "AMT_ANNUITY",
         "AMT_GOODS_PRICE", "EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3",
@@ -218,7 +221,7 @@ def compare_models(results_baseline, x_train, y_train, path=PROJECT_ROOT / "cv_r
         for name, info in results_baseline.items():
             with mlflow.start_run(run_name=f"{name}__{feature_set}__cv{cv}"):
                 log_run_info(name, feature_set, f"cv{cv}", x_train.columns, info["model"].get_params(), version)
-                mlflow.log_params({"cv_folds": cv, "split_seed": 42, "train_rows": len(y_train)})
+                mlflow.log_params({"cv_folds": cv, "split_seed": PARAMS["seed"], "train_rows": len(y_train)})
                 mlflow.log_metrics({
                     "cv_roc_auc_mean": results[name]["roc_auc_mean"],
                     "cv_roc_auc_std": results[name]["roc_auc_std"],
@@ -234,6 +237,6 @@ if __name__ == "__main__":
     X = train.drop(columns=["TARGET"])
     y = train["TARGET"]
     x_train, _, y_train, _ = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
+        X, y, test_size=PARAMS["test_size"], random_state=PARAMS["seed"], stratify=y
     )
     compare_models(get_models(), x_train, y_train, feature_set="annuity_debt_app_3")

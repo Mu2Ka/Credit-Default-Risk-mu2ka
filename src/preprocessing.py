@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
+from config import PARAMS
 
 print('старт модуля preprocessing')
 def FEATURE_ENGINEERING(dataset: pd.DataFrame) -> pd.DataFrame:
@@ -261,8 +262,8 @@ def get_train_test_data(train: pd.DataFrame):
     x_train, x_test, y_train, y_test = train_test_split(
         X,
         Y,
-        test_size=0.2,
-        random_state=42,
+        test_size=PARAMS["test_size"],
+        random_state=PARAMS["seed"],
         stratify=Y,
     )
     x_train, x_test, x_train_for_catboost, x_test_for_catboost = prepare_features(x_train, x_test)

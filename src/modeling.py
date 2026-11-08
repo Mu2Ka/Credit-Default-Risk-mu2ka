@@ -5,13 +5,14 @@ from lightgbm import LGBMClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold, cross_val_score
+from config import PARAMS
 
 print('Cтарт модуля modeling')
 def get_models() -> dict[str, dict[str, Any]]:
     return {
         "LogisticRegression": {
             "model": LogisticRegression(
-                random_state=42,
+                random_state=PARAMS["seed"],
                 max_iter=1000,
             ),
             "scaled": True,
@@ -22,7 +23,7 @@ def get_models() -> dict[str, dict[str, Any]]:
                 max_depth=10,
                 min_samples_split=20,
                 min_samples_leaf=10,
-                random_state=42,
+                random_state=PARAMS["seed"],
                 n_jobs=-1,
                 verbose=0,
             ),
@@ -30,12 +31,8 @@ def get_models() -> dict[str, dict[str, Any]]:
         },
         "LightGBM": {
             "model": LGBMClassifier(
-                n_estimators=500,
-                learning_rate=0.03,
-                num_leaves=31,
-                subsample=0.8,
-                colsample_bytree=0.8,
-                random_state=42,
+                **PARAMS["lightgbm"],
+                random_state=PARAMS["seed"],
                 verbose=-1,
             ),
             "scaled": False,
@@ -46,7 +43,7 @@ def get_models() -> dict[str, dict[str, Any]]:
                 learning_rate=0.03,
                 depth=6,
                 eval_metric="PRAUC",
-                random_seed=42,
+                random_seed=PARAMS["seed"],
                 verbose=False,
             ),
             "scaled": False,
@@ -67,12 +64,12 @@ def optimize_LightGBM_with_optuna(trial, x_train, y_train) -> float:
         "reg_alpha": trial.suggest_float("reg_alpha", 1e-3, 10.0, log=True),
         "reg_lambda": trial.suggest_float("reg_lambda", 1e-3, 10.0, log=True),
         "min_split_gain": trial.suggest_float("min_split_gain", 0.0, 1.0),
-        "random_state": 42,
+        "random_state": PARAMS["seed"],
         "verbose": -1,
     }
 
     model = LGBMClassifier(**params)
-    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    cv = StratifiedKFold(n_splits=PARAMS["cv_folds"], shuffle=True, random_state=PARAMS["seed"])
     scores = cross_val_score(
         model,
         x_train,
